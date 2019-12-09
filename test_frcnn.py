@@ -11,6 +11,7 @@ from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from keras_frcnn import roi_helpers
+import shutil
 
 sys.setrecursionlimit(40000)
 
@@ -23,14 +24,19 @@ parser.add_option("--config_filename", dest="config_filename", help=
 				"Location to read the metadata related to the training (generated when training).",
 				default="config.pickle")
 parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet50')
-parser.add_option("-v", dest="visualize", type=bool, default=False, help="Whether to show images")
-parser.add_option("-t", "--threshold", dest="bbox_threshold", type=bool, help="Threshold at which to plot bboxes", default=0.8)
+parser.add_option("-v", dest="visualize", action="store_true", default=False, help="Whether to show images")
+parser.add_option("-t", "--threshold", dest="bbox_threshold", type=float, help="Threshold at which to plot bboxes", default=0.8)
+parser.add_option("-s", "--save", dest="save_dir", type=str, help="Directory to which output images will be saved", default="results_imgs")
 
 (options, args) = parser.parse_args()
 
 if not options.test_path:   # if filename is not given
 	parser.error('Error: path to test data must be specified. Pass --path to command line')
 
+# Folder to which results will be saved
+if os.path.exists(os.path.join(os.getcwd(), options.save_dir)):
+    shutil.rmtree(os.path.join(os.getcwd(), options.save_dir))
+os.makedirs(os.path.join(os.getcwd(), options.save_dir))
 
 config_output_filename = options.config_filename
 
@@ -196,10 +202,6 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 			cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
 
-			if cls_name not in bboxes:
-				bboxes[cls_name] = []
-				probs[cls_name] = []
-
 			(x, y, w, h) = ROIs[0, ii, :]
 
 			cls_num = np.argmax(P_cls[0, ii, :])
@@ -212,8 +214,16 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 				x, y, w, h = roi_helpers.apply_regr(x, y, w, h, tx, ty, tw, th)
 			except:
 				pass
-			bboxes[cls_name].append([C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)])
-			probs[cls_name].append(np.max(P_cls[0, ii, :]))
+
+			# Only keep highest probable bbox of each class
+			currentProb = np.max(P_cls[0, ii, :])
+			if(cls_name not in probs):
+				bboxes[cls_name] = [[C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)]]
+				probs[cls_name] = [currentProb]
+			else:
+				if(currentProb > probs[cls_name][0]):
+					bboxes[cls_name][0] = [C.rpn_stride*x, C.rpn_stride*y, C.rpn_stride*(x+w), C.rpn_stride*(y+h)]
+					probs[cls_name][0] = currentProb
 
 	all_dets = []
 
@@ -231,16 +241,16 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 			textLabel = '{}: {}'.format(key,int(100*new_probs[jk]))
 			all_dets.append((key,100*new_probs[jk]))
 
-			(retval,baseLine) = cv2.getTextSize(textLabel,cv2.FONT_HERSHEY_COMPLEX,1,1)
+			(retval,baseLine) = cv2.getTextSize(textLabel,cv2.FONT_HERSHEY_COMPLEX,0.8,1)
 			textOrg = (real_x1, real_y1-0)
 
-			cv2.rectangle(img, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (0, 0, 0), 2)
-			cv2.rectangle(img, (textOrg[0] - 5,textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)
-			cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+			cv2.rectangle(img, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])), -1)
+			#cv2.rectangle(img, (textOrg[0] - 5, textOrg[1]+baseLine - 5), (textOrg[0]+retval[0] + 5, textOrg[1]-retval[1] - 5), (255, 255, 255), -1)
+			cv2.putText(img, textLabel, (textOrg[0], textOrg[1] - 3), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
 	if(options.visualize):
 		cv2.imshow('img', img)
 		cv2.waitKey(0)
-	cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
+	cv2.imwrite(os.path.join(options.save_dir, '{}.jpg'.format(img_name.split('.')[0])), img)
