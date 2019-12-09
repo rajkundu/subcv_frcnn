@@ -15,7 +15,7 @@ for fpath in glob.glob(os.path.join(args.inputdir, "*.xml")):
 	for bbox in root.findall('object'):
 		classname = bbox.find('name').text
 		coords = bbox.find('bndbox')
-		entrylist += ("%s,%s,%s,%s,%s,%s\n" % (impath, coords[0].text, coords[1].text, coords[2].text, coords[3].text, classname))
+		entrylist += ("%s,%s,%s,%s,%s,%s\n" % (os.path.join(args.inputdir, impath), coords[0].text, coords[1].text, coords[2].text, coords[3].text, classname))
 
 with open(args.outputfile, "w+") as myfile:
 	myfile.write(entrylist)
