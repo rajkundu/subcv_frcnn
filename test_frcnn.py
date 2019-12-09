@@ -23,6 +23,8 @@ parser.add_option("--config_filename", dest="config_filename", help=
 				"Location to read the metadata related to the training (generated when training).",
 				default="config.pickle")
 parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet50')
+parser.add_option("-v", dest="visualize", type=bool, default=False, help="Whether to show images")
+parser.add_option("-t", "--threshold", dest="bbox_threshold", type=bool, help="Threshold at which to plot bboxes", default=0.8)
 
 (options, args) = parser.parse_args()
 
@@ -143,10 +145,6 @@ all_imgs = []
 
 classes = {}
 
-bbox_threshold = 0.8
-
-visualise = True
-
 for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 	if not img_name.lower().endswith(('.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff')):
 		continue
@@ -193,7 +191,7 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 		for ii in range(P_cls.shape[1]):
 
-			if np.max(P_cls[0, ii, :]) < bbox_threshold or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+			if np.max(P_cls[0, ii, :]) < options.bbox_threshold or np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
 				continue
 
 			cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
@@ -242,6 +240,7 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
-	cv2.imshow('img', img)
-	cv2.waitKey(0)
-	# cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
+	if(options.visualize):
+		cv2.imshow('img', img)
+		cv2.waitKey(0)
+	cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
