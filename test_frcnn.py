@@ -25,7 +25,7 @@ parser.add_option("--config_filename", dest="config_filename", help=
 				default="config.pickle")
 parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet50')
 parser.add_option("-v", dest="visualize", action="store_true", default=False, help="Whether to show images")
-parser.add_option("-t", "--threshold", dest="bbox_threshold", type=float, help="Threshold at which to plot bboxes", default=0.8)
+parser.add_option("-t", "--threshold", dest="bbox_threshold", type=float, help="Bbox threshold", default=0.8)
 parser.add_option("-s", "--save", dest="save_dir", type=str, help="Directory to which output images will be saved", default="results_imgs")
 
 (options, args) = parser.parse_args()
@@ -42,6 +42,9 @@ config_output_filename = options.config_filename
 
 with open(config_output_filename, 'rb') as f_in:
 	C = pickle.load(f_in)
+
+# Tell keras no training is being done
+K.set_learning_phase(0)
 
 if C.network == 'resnet50':
 	import keras_frcnn.resnet as nn
